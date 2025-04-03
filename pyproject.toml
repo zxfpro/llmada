@@ -5,6 +5,8 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
+    "llama-index>=0.12.28",
+    "openai>=1.70.0",
     "pytest>=8.3.5",
     "pytest-html>=4.1.1",
 ]
