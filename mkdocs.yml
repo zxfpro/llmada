@@ -26,3 +26,5 @@ nav:
   - Index: index.md
   - Tutorial: 
     - client: client.md
+    - core : core.md
+  - Use Case: use_case.md
