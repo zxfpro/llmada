@@ -1,15 +1,6 @@
 """
 client.py 用于管理client
 """
-from llama_index.llms.openai import OpenAI
-from llama_index.core import Settings
-from llama_index.embeddings.openai import OpenAIEmbedding
-from llama_index.core.tools import FunctionTool
-from llama_index.core.llms import ChatMessage, MessageRole
-from typing import Any, Dict, Optional
-from typing import Dict, Any, Iterator
-import openai
-
 import requests
 
 class OpenAIClient:

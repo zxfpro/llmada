@@ -1,6 +1,6 @@
 [project]
 name = "llmada"
-version = "0.1.6"
+version = "0.1.7"
 description = "进行了相对系统的测试"
 readme = "README.md"
 requires-python = ">=3.10"
