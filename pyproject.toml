@@ -1,10 +1,11 @@
 [project]
 name = "llmada"
-version = "0.1.7"
-description = "进行了相对系统的测试"
+version = "0.1.8"
+description = "提升了系统"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
+    "fastapi>=0.115.12",
     "llama-index>=0.12.28",
     "openai>=1.70.0",
     "pytest>=8.3.5",
@@ -12,5 +13,7 @@ dependencies = [
     "pytest-lazy-fixture>=0.6.3",
     "python-dotenv>=1.1.0",
     "setuptools>=78.1.0",
+    "sse-starlette>=2.3.3",
+    "uvicorn>=0.34.2",
     "volcengine-python-sdk[ark]>=1.1.3",
 ]
