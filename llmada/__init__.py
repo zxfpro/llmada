@@ -1,3 +1,3 @@
-from .client import OpenAIClient
-from .core import BianXieAdapter,KimiAdapter,ArkAdapter,LLamaIndexAdapter
+from .core import BianXieAdapter,KimiAdapter,ArkAdapter
+from .core import set_llama_index
 

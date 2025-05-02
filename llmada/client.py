@@ -4,6 +4,7 @@ client.py 用于管理client
 import requests
 import time
 import json
+import base64
 
 class OpenAIClient:
     """
@@ -26,9 +27,10 @@ class OpenAIClient:
         """
 
         try:
-            time3 = time.time()
+            time1 = time.time()
             response = requests.post(self.api_base, headers=self.headers, json=params)
-            time4 = time.time()
+            time2 = time.time()
+            print(time2-time1)
             return response.json()
         except Exception as e:
             raise Exception(f"API request failed: {e}")
@@ -82,7 +84,7 @@ class OpenAIClient:
                                 print(f"\nError processing chunk: {e}\nChunk data: {chunk}")
 
 
-                print("\n(Streaming finished)") # Add a newline after the stream is complete
+                print(f"\n(Streaming finished) {time2-time1}") # Add a newline after the stream is complete
 
             else:
                 # Handle non-200 responses
@@ -94,6 +96,49 @@ class OpenAIClient:
             print(f"Request Error: {e}")
         except Exception as e:
             print(f"An unexpected error occurred: {e}")
+
+    def request_modal(self):
+
+        def get_img_content(inputs = str):
+            if is_url:
+                return "https://github.com/dianping/cat/raw/master/cat-home/src/main/webapp/images/logo/cat_logo03.png"
+            else:
+                def image_to_base64(image_path):
+                    with open(image_path, "rb") as image_file:
+                        image_data = image_file.read()
+                        base64_encoded_data = base64.b64encode(image_data)
+                        base64_encoded_str = base64_encoded_data.decode('utf-8')
+                        return base64_encoded_str    
+                image_base64 = image_to_base64(inputs)
+                return f"data:image/jpeg;base64,{image_base64}"
+
+
+        data = {
+            'model': 'gpt-4-vision-preview',
+            'messages': [
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": "这张图片的图标是个什么动物？"
+                        },
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": get_img_content('111.png')
+                            }
+                        }
+                    ]
+                }
+            ],
+        }
+
+        response = requests.post(self.api_base, headers=self.headers, json=data)
+        return response.json()
+
+
+
 
 if __name__ == "__main__":
     import os
