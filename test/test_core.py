@@ -86,3 +86,5 @@ class Test_Ark:
         result = ark.product(prompt='你好')
         print(result)
         assert type(result) == str
+
+
