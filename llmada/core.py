@@ -14,11 +14,13 @@ load_dotenv()
 class ModelAdapter:
     def __init__(self):
         self.api_key = None
-        self.model_name = None
         self.temperature = 0.7
         self.client = None
+        self.model_name = None
+        self.model_pool = []
 
     def set_model(self, model_name: str):
+        assert model_name in self.model_pool
         self.model_name = model_name
     
     def set_temperature(self, temperature:float):
@@ -47,9 +49,85 @@ class BianXieAdapter(ModelAdapter):
         super().__init__()
         self.client = OpenAIClient(api_key=api_key or os.getenv('BIANXIE_API_KEY') , api_base=api_base)
         self.model_name = "gemini-2.5-flash-preview-04-17-nothinking"
+        self.model_pool = ['gpt-3.5-turbo',
+                'gpt-4.1',
+                'gpt-4.1-2025-04-14',
+                'gpt-4.1-mini',
+                'gpt-4.1-mini-2025-04-14',
+                'gpt-4.1-nano',
+                'gpt-4.1-nano-2025-04-14',
+                'gpt-4o',
+                'gpt-4o-2024-11-20',
+                'gpt-4o-audio-preview',
+                'gpt-4o-audio-preview-2024-10-01',
+                'gpt-4o-audio-preview-2024-12-17',
+                'gpt-4o-all',
+                'gpt-4o-image',
+                'gpt-4o-image-vip',
+                'gpt-4o-mini',
+                'gpt-4o-mini-2024-07-18',
+                'gpt-4o-mini-audio-preview',
+                'gpt-4o-mini-audio-preview-2024-12-17',
+                'gpt-4o-mini-realtime-preview',
+                'gpt-4o-mini-realtime-preview-2024-12-17',
+                'gpt-4o-mini-search-preview',
+                'gpt-4o-mini-search-preview-2025-03-11',
+                'gpt-4o-realtime-preview',
+                'gpt-4o-realtime-preview-2024-10-01',
+                'gpt-4o-realtime-preview-2024-12-17',
+                'gpt-4o-search-preview-2025-03-11',
+                'gpt-4o-search-preview',
+                'claude-3-5-haiku-20241022',
+                'claude-3-5-haiku-latest',
+                'claude-3-5-sonnet-20240620',
+                'claude-3-5-sonnet-20241022',
+                'claude-3-5-sonnet-20241022-all',
+                'claude-3-5-sonnet-all',
+                'claude-3-5-sonnet-latest',
+                'claude-3-7-sonnet-20250219',
+                'claude-3-7-sonnet-20250219-thinking',
+                'claude-3-haiku-20240307',
+                'coder-claude3.5-sonnet',
+                'coder-claude3.7-sonnet',
+                'gemini-2.0-flash',
+                'gemini-2.0-flash-exp',
+                'gemini-2.0-flash-exp-image-generation',
+                'gemini-2.0-flash-thinking-exp',
+                'gemini-2.0-flash-thinking-exp-01-21',
+                'gemini-2.0-pro-exp-02-05',
+                'gemini-2.5-flash-preview-04-17',
+                'gemini-2.5-flash-preview-04-17-nothinking',
+                'gemini-2.5-flash-preview-04-17-thinking',
+                'gemini-2.5-pro-exp-03-25',
+                'gemini-2.5-pro-preview-03-25',
+                'grok-3',
+                'grok-3-beta',
+                'grok-3-deepsearch',
+                'grok-3-mini-beta',
+                'grok-3-fast-beta',
+                'grok-3-mini-fast-beta',
+                'grok-3-reasoner',
+                'grok-beta',
+                'grok-vision-beta',
+                'o1-mini',
+                'o1-mini-2024-09-12',
+                'o3-mini',
+                'o3-mini-2025-01-31',
+                'o3-mini-all',
+                'o3-mini-high',
+                'o3-mini-low',
+                'o3-mini-medium',
+                'o4-mini',
+                'o4-mini-2025-04-16',
+                'o4-mini-high',
+                'o4-mini-medium',
+                'o4-mini-low',
+                'text-embedding-ada-002',
+                'text-embedding-3-small',
+                'text-embedding-3-large']
 
     def get_model(self):
-        return ["详见 看见"]
+        return self.model_pool
     
     def get_modal_model(self):
         return ['gpt-4o']
@@ -87,7 +165,10 @@ class BianXieAdapter(ModelAdapter):
             'messages': [{'role': 'user', 'content': prompt}],
             'temperature': self.temperature
         }
-        return self.client.request(data).get('choices')[0].get('message').get('content')
+        try:
+            return self.client.request(data).get('choices')[0].get('message').get('content')
+        except TypeError as e:
+            return e
 
     def chat(self, messages: list) -> str:
         """Engage in a conversation with the model using a list of messages.
@@ -103,8 +184,11 @@ class BianXieAdapter(ModelAdapter):
             'messages': messages,
             'temperature': self.temperature
         }
-        return self.client.request(data).get('choices')[0].get('message').get('content')
-    
+        try:
+            return self.client.request(data).get('choices')[0].get('message').get('content')
+        except TypeError as e:
+            return e
+        
     def product_stream(self, prompt: str) -> str:
         """Generate a response from the model based on a single prompt.
 
