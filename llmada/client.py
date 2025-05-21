@@ -140,10 +140,36 @@ class OpenAIClient:
 
 
 
+import os
 
-if __name__ == "__main__":
-    import os
+def test_request():
+    opc = OpenAIClient(os.getenv('BIANXIE_API_KEY'))
+    data = {
+    "model": "gpt-3.5-turbo",
+    "messages": [{
+        "role": "user",
+        "content": "how to deal with world war 3"
+    }]
+    }
+    pp = opc.request(data)
+    print(pp)
 
+def test_request_stream():
+    opc = OpenAIClient(os.getenv('BIANXIE_API_KEY'))
+    data = {
+    "model": "gpt-3.5-turbo",
+    "messages": [{
+        "role": "user",
+        "content": "how to deal with world war 3"
+    }],
+    "stream": True
+}
+    pp = opc.request_stream(data)
+    print(pp)
+    for i in pp:
+        print(i)
+
+def test_request_modal():
     opc = OpenAIClient(os.getenv('BIANXIE_API_KEY'))
     data = {
     "model": "gpt-3.5-turbo",
