@@ -93,6 +93,7 @@ class OpenAIClient:
                 print(response.text) # Print the full error response if not streaming
 
         except requests.exceptions.RequestException as e:
+            # TODO if "439" in ccc
             print(f"Request Error: {e}")
         except Exception as e:
             print(f"An unexpected error occurred: {e}")
