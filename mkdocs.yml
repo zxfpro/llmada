@@ -25,6 +25,5 @@ plugins:
 nav:
   - Index: index.md
   - Tutorial: 
-    - client: client.md
-    - core : core.md
+    - client: api_document.md
   - Use Case: use_case.md
