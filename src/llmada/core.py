@@ -429,30 +429,3 @@ class KimiAdapter(ModelAdapter):
             'stream': True #
         }
         return self.client.chat.completions.create(**data)
-
-def set_llama_index(api_key: str = None, api_base: str = "https://api.bianxieai.com/v1",model:str="gpt-4o",temperature: float =0.1,
-                    llm_config:dict = {},embed_config:dict = {}):
-    """初始化
-
-    Args:
-        api_key (str): API key for authentication.
-        api_base (str): Base URL for the API endpoint.
-    """
-
-    from llama_index.llms.openai import OpenAI
-    from llama_index.core import Settings
-    from llama_index.embeddings.openai import OpenAIEmbedding
-
-    api_key=api_key or os.getenv('BIANXIE_API_KEY')
-
-    client = OpenAI(
-        model=model,
-        api_base=api_base,
-        api_key=api_key,
-        temperature=temperature,
-        **llm_config
-    )
-    embedding = OpenAIEmbedding(api_base=api_base,api_key=api_key,**embed_config)
-    Settings.embed_model = embedding
-    Settings.llm = client
-
