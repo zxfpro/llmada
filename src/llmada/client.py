@@ -5,6 +5,7 @@ import requests
 import time
 import json
 import base64
+import httpx
 
 class OpenAIClient:
     """
@@ -35,6 +36,102 @@ class OpenAIClient:
         except Exception as e:
             raise Exception(f"API request failed: {e}")
 
+
+
+    def request_stream_http2(self, params: dict) -> dict:
+        """
+        简单对话：直接调用 OpenAI API 并返回流式响应
+        """
+        try:
+            time1 = time.time()
+            self.headers["Accept"] = "text/event-stream"
+            payload = params
+            with httpx.Client(http2=True, timeout=None) as client:
+                with client.stream("POST", self.api_base, headers=self.headers, json=payload) as response:
+                    response.raise_for_status()
+                    buffer = b''
+                    for chunk in response.iter_bytes():
+                        buffer += chunk
+                        while b'\n' in buffer:
+                            line_bytes, _, buffer = buffer.partition(b'\n')
+                            decoded_line = line_bytes.decode('utf-8')
+
+                            if decoded_line.startswith('data:'):
+                                json_str = decoded_line[len('data:'):].strip()
+
+                                if json_str == '[DONE]':
+                                    return # End the generator
+
+                                try:
+                                    data = json.loads(json_str)
+                                    # Extract content based on common LLM API response structure
+                                    if "choices" in data and data["choices"]:
+                                        chunk_content = data["choices"][0]["delta"].get("content", "")
+                                        if chunk_content:
+                                            yield chunk_content # Yield the generated content chunk
+                                except json.JSONDecodeError:
+                                    yield f"[ERROR: Malformed data received: {json_str}]"
+
+        except httpx.RequestError as e:
+            error_msg = f"Request failed: {e}"
+            raise ConnectionError(error_msg) from e # Re-raise as a custom error or simpler Exception
+        except Exception as e:
+            error_msg = f"An unexpected error occurred: {e}"
+            raise RuntimeError(error_msg) from e
+
+    async def request_stream_http2_async(self, params: dict):
+        """
+        简单对话：直接调用 OpenAI API 并返回流式响应 (异步版本)
+        """
+        try:
+            time1 = time.time() # 这行代码在异步函数中也可以保留，用于计时
+
+            # 设置 Accept 头为 text/event-stream，表示期望流式事件
+            self.headers["Accept"] = "text/event-stream"
+            payload = params
+
+            # 使用 httpx.AsyncClient 进行异步 HTTP 请求
+            # timeout=None 表示不设置请求超时时间，由底层 TCP/TLS 决定
+            async with httpx.AsyncClient(http2=True, timeout=None) as client:
+                # 发送 POST 请求并获取异步响应流
+                async with client.stream("POST", self.api_base, headers=self.headers, json=payload) as response:
+                    # 检查 HTTP 响应状态码，如果不是 2xx，则抛出异常
+                    response.raise_for_status()
+
+                    buffer = b''
+                    # 异步迭代响应的字节块
+                    async for chunk in response.aiter_bytes():
+                        buffer += chunk
+                        # 处理可能包含多行或不完整行的缓冲区
+                        while b'\n' in buffer:
+                            line_bytes, _, buffer = buffer.partition(b'\n')
+                            decoded_line = line_bytes.decode('utf-8')
+
+                            if decoded_line.startswith('data:'):
+                                json_str = decoded_line[len('data:'):].strip()
+
+                                if json_str == '[DONE]':
+                                    return # 结束生成器
+
+                                try:
+                                    data = json.loads(json_str)
+                                    # 根据常见的 LLM API 响应结构提取内容
+                                    if "choices" in data and data["choices"]:
+                                        chunk_content = data["choices"][0]["delta"].get("content", "")
+                                        if chunk_content:
+                                            # 异步 yield 生成的内容块
+                                            yield chunk_content
+                                except json.JSONDecodeError:
+                                    yield f"[ERROR: Malformed data received: {json_str}]"
+
+        except httpx.RequestError as e:
+            error_msg = f"Request failed: {e}"
+            # 异步函数中也抛出异常
+            raise ConnectionError(error_msg) from e
+        except Exception as e:
+            error_msg = f"An unexpected error occurred: {e}"
+            # 异步函数中也抛出异常
+            raise RuntimeError(error_msg) from e
 
     def request_stream(self, params: dict) -> dict:
         """
@@ -97,6 +194,9 @@ class OpenAIClient:
             print(f"Request Error: {e}")
         except Exception as e:
             print(f"An unexpected error occurred: {e}")
+
+
+
 
     def request_modal(self):
 
