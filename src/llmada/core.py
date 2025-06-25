@@ -13,6 +13,13 @@ from google import genai
 from dotenv import load_dotenv
 load_dotenv()
 
+class ResourceExhaustedError(Exception):
+    """Raised when a resource's quota has been exceeded."""
+    def __init__(self, message="Token quota has been exhausted."):
+        self.message = message
+        super().__init__(self.message)
+
+
 class ModelAdapter:
     def __init__(self):
         self.api_key = None
@@ -60,6 +67,7 @@ class BianXieAdapter(ModelModalAdapter):
         self.client = OpenAIClient(api_key=api_key or os.getenv('BIANXIE_API_KEY') , api_base=api_base)
         self.model_pool = ['gemini-2.5-flash-preview-04-17-nothinking',
                 'gpt-3.5-turbo',
+                'gpt-3.5-turbo-0125',
                 'gpt-4.1',
                 'gpt-4.1-2025-04-14',
                 'gpt-4.1-mini',
@@ -97,6 +105,10 @@ class BianXieAdapter(ModelModalAdapter):
                 'claude-3-7-sonnet-20250219',
                 'claude-3-7-sonnet-20250219-thinking',
                 'claude-3-haiku-20240307',
+                'claude-opus-4-20250514',
+                'claude-opus-4-20250514-thinking',
+                'claude-sonnet-4-20250514',
+                'claude-sonnet-4-20250514-thinking',
                 'coder-claude3.5-sonnet',
                 'coder-claude3.7-sonnet',
                 'gemini-2.0-flash',
@@ -109,6 +121,17 @@ class BianXieAdapter(ModelModalAdapter):
                 'gemini-2.5-flash-preview-04-17-thinking',
                 'gemini-2.5-pro-exp-03-25',
                 'gemini-2.5-pro-preview-03-25',
+                'gemini-2.5-pro-preview-03-25-thinking',
+                'gemini-2.5-pro-preview-05-06',
+                'gemini-2.5-pro-preview-05-06-thinking',
+                'gemini-2.5-pro-preview-06-05',
+                'gemini-2.5-pro-preview-06-05-thinking',
+                'deepseek-ai/DeepSeek-R1',
+                'deepseek-ai/DeepSeek-V3',
+                'deepseek-chat',
+                'deepseek-r1',
+                'deepseek-r1-250528',
+                'deepseek-reasoner',
                 'grok-3',
                 'grok-3-beta',
                 'grok-3-deepsearch',
@@ -138,7 +161,14 @@ class BianXieAdapter(ModelModalAdapter):
         self.chat_history = []
     
     def get_modal_model(self):
-        return ['gpt-4o']
+        return ['gpt-4o',
+                'claude-3-5-sonnet-20240620',
+                'claude-3-5-sonnet-20241022',
+                'claude-3-5-sonnet-20241022-all',
+                'claude-3-5-sonnet-all',
+                'claude-3-5-sonnet-latest',
+                'claude-3-7-sonnet-20250219',
+                'claude-3-7-sonnet-20250219-thinking',]
     
     def product_modal(self, prompt: RichPromptTemplate) -> str:
         """Generate a response from the model based on a single prompt.
@@ -158,6 +188,26 @@ class BianXieAdapter(ModelModalAdapter):
         }
         return self.client.request(data).get('choices')[0].get('message').get('content')
 
+    def _deal_response(self,response):
+
+        """
+        {'error': {'message': '[sk-tQ1***5A6] 该令牌额度已用尽 !token.UnlimitedQuota && token.RemainQuota = -17334 (request id: 20250625111613621934640lckfLdQI)', 'type': 'new_api_error'}} self.client.request(data)
+
+        
+        {'id': 'chatcmpl-20250625111810984333612YPGvZg5m', 
+        'model': 'gemini-2.5-flash-preview-04-17', 
+        'object': 'chat.completion', 
+        'created': 1750821491, 
+        'choices': [{'index': 0, 'message': {'role': 'assistant', 'content': 'Hello there! How can I help you today?'}, 'finish_reason': 'stop'}], 'usage': {'prompt_tokens': 4, 'completion_tokens': 10, 'total_tokens': 14, 'prompt_tokens_details': {'cached_tokens': 0, 'text_tokens': 4, 'audio_tokens': 0, 'image_tokens': 0}, 'completion_tokens_details': {'text_tokens': 0, 'audio_tokens': 0, 'reasoning_tokens': 0}, 'input_tokens': 0, 'output_tokens': 0, 'input_tokens_details': None}} self.client.request(data)
+        """
+
+        choices = response.get('choices')
+        if choices:
+            content = choices[0].get('message').get('content')
+            return content
+        else:
+            raise ResourceExhaustedError(f"{response.get('error')}")
+
 
     def product(self, prompt: str) -> str:
         """Generate a response from the model based on a single prompt.
@@ -173,10 +223,16 @@ class BianXieAdapter(ModelModalAdapter):
             'messages': [{'role': 'user', 'content': prompt}],
             'temperature': self.temperature
         }
+        response = self.client.request(data)
+        return self._deal_response(response=response)
+    
+        
+    def _assert_prompt(self,prompt):
         try:
-            return self.client.request(data).get('choices')[0].get('message').get('content')
-        except TypeError as e:
-            return e
+            assert prompt != ""
+            return True
+        except AssertionError:
+            return False
         
     def product_stream(self, prompt: str) -> str:
         """Generate a response from the model based on a single prompt.
@@ -187,16 +243,21 @@ class BianXieAdapter(ModelModalAdapter):
         Returns:
             str: The response generated by the model.
         """
+
         data = {
             'model': self.model_name,
             'messages': [{'role': 'user', 'content': prompt}],
             'temperature': self.temperature,
             "stream": True
         }
-        result_stream = self.client.request_stream_http2(data)
-        
-        for i in result_stream:
-            yield i
+        if not self._assert_prompt(prompt):
+            yield ""
+        else:
+            result_stream = self.client.request_stream_http2(data)
+            for i in result_stream:
+                yield i
+
+
 
     async def aproduct_stream(self, prompt: str) -> str:
         """Generate a response from the model based on a single prompt.
@@ -285,6 +346,10 @@ class BianXieAdapter(ModelModalAdapter):
             yield i
         self.chat_history.append({'role':'assistant','content':result_str})
 
+
+
+
+# 
 
 class ArkAdapter(ModelAdapter):
     def __init__(self, api_key: str = None, api_base: str = None,):
@@ -397,7 +462,6 @@ class GoogleAdapter(ModelAdapter):
         )
         
         return response.text
-
 
 class KimiAdapter(ModelAdapter):
     """Kimi格式的适配器
