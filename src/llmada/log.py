@@ -126,5 +126,5 @@ class Logger:
         self.logger = logger
 
 
-Log = Logger(log_file_name = "llmada.log")
+Log = Logger(log_file_name = "app.log")
 del Logger
