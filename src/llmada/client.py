@@ -6,6 +6,8 @@ import time
 import json
 import base64
 import httpx
+from .log import Log
+logger = Log.logger
 
 class OpenAIClient:
     """
@@ -43,8 +45,8 @@ class OpenAIClient:
         简单对话：直接调用 OpenAI API 并返回流式响应
         """
         try:
-            time1 = time.time()
             self.headers["Accept"] = "text/event-stream"
+
             payload = params
             with httpx.Client(http2=True, timeout=None) as client:
                 with client.stream("POST", self.api_base, headers=self.headers, json=payload) as response:
@@ -79,13 +81,101 @@ class OpenAIClient:
             error_msg = f"An unexpected error occurred: {e}"
             raise RuntimeError(error_msg) from e
 
+
+
+    # def request_stream_http2(self, params: dict): # 移除 -> dict 类型提示，因为是生成器
+    #     """
+    #     简单对话：直接调用 OpenAI API 并返回流式响应
+    #     """
+        
+    #     request_start_time = time.time()
+    #     logger.debug(f"[{request_start_time:.3f}] [DEBUG] Request initiation started.")
+
+    #     self.headers["Accept"] = "text/event-stream"
+    #     # 确保 User-Agent 设置正确，即使之前测试无效，也让日志记录下来
+    #     self.headers["User-Agent"] = "curl/8.6.0" 
+        
+    #     payload = params
+
+    #     try:
+    #         # 客户端初始化时间
+    #         client_init_time = time.time()
+    #         logger.debug(f"[{client_init_time:.3f}] [DEBUG] Initializing httpx.Client(http2=True).")
+            
+    #         with httpx.Client(http2=True, timeout=None,verify=False) as client:
+    #             client_initialized_time = time.time()
+    #             logger.debug(f"[{client_initialized_time:.3f}] [DEBUG] httpx.Client initialized. Time taken: {client_initialized_time - client_init_time:.3f}s.")
+                
+    #             # 发送请求时间
+    #             send_request_time = time.time()
+    #             logger.debug(f"[{send_request_time:.3f}] [DEBUG] Sending POST request to {self.api_base}.")
+                
+    #             with client.stream("POST", self.api_base, headers=self.headers, json=payload) as response:
+    #                 first_byte_received_time = time.time()
+    #                 logger.debug(f"[{first_byte_received_time:.3f}] [DEBUG] Received first response byte (or headers). Time to first byte from request start: {first_byte_received_time - request_start_time:.3f}s.")
+                    
+    #                 response.raise_for_status() # 检查HTTP状态码
+                    
+    #                 # 打印响应头，确认 content-type 和 Server 字段
+    #                 # logger.debug(f"[{time.time():.3f}] [DEBUG] Response Status: {response.status_code}, HTTP Version: {response.http_version.value}.")
+    #                 logger.debug(f"[{time.time():.3f}] [DEBUG] Response Status: {response.status_code}, HTTP Version: {response.http_version}.")
+    #                 logger.debug(f"[{time.time():.3f}] [DEBUG] Response Headers: {response.headers}.")
+
+
+    #                 buffer = b''
+    #                 chunk_count = 0
+                    
+    #                 for chunk in response.iter_bytes():
+    #                     chunk_receive_time = time.time()
+    #                     chunk_count += 1
+    #                     # 打印每次收到 chunk 的时间
+    #                     logger.debug(f"[{chunk_receive_time:.3f}] [DEBUG] Received chunk {chunk_count}. Size: {len(chunk)} bytes.")
+
+    #                     buffer += chunk
+    #                     while b'\n' in buffer:
+    #                         line_bytes, _, buffer = buffer.partition(b'\n')
+    #                         decoded_line = line_bytes.decode('utf-8')
+                            
+    #                         # 打印每行解析出来的时间
+    #                         line_parsed_time = time.time()
+    #                         logger.debug(f"[{line_parsed_time:.3f}] [DEBUG] Parsed line: '{decoded_line[:50]}...'") # 打印前50字符避免过长
+
+    #                         if decoded_line.startswith('data:'):
+    #                             json_str = decoded_line[len('data:'):].strip()
+
+    #                             if json_str == '[DONE]':
+    #                                 logger.debug(f"[{time.time():.3f}] [DEBUG] [DONE] signal received. Stream ending.")
+    #                                 return # End the generator
+
+    #                             try:
+    #                                 data = json.loads(json_str)
+    #                                 # Extract content based on common LLM API response structure
+    #                                 if "choices" in data and data["choices"]:
+    #                                     chunk_content = data["choices"][0]["delta"].get("content", "")
+    #                                     if chunk_content:
+    #                                         # Yielding the chunk_content
+    #                                         yield_time = time.time()
+    #                                         logger.debug(f"[{yield_time:.3f}] [DEBUG] Yielding content: '{chunk_content[:50]}...'")
+    #                                         yield chunk_content # Yield the generated content chunk
+    #                             except json.JSONDecodeError:
+    #                                 logger.error(f"[{time.time():.3f}] [ERROR] Malformed data received: {json_str}", exc_info=True)
+    #                                 yield f"[ERROR: Malformed data received: {json_str}]"
+                                    
+        # except httpx.RequestError as e:
+        #     error_msg = f"Request failed: {e}"
+        #     logger.error(f"[{time.time():.3f}] [ERROR] httpx.RequestError: {error_msg}", exc_info=True)
+        #     raise ConnectionError(error_msg) from e
+        # except Exception as e:
+        #     error_msg = f"An unexpected error occurred: {e}"
+        #     logger.critical(f"[{time.time():.3f}] [CRITICAL] Unexpected error: {error_msg}", exc_info=True)
+        #     raise RuntimeError(error_msg) from e
+
+
     async def request_stream_http2_async(self, params: dict):
         """
         简单对话：直接调用 OpenAI API 并返回流式响应 (异步版本)
         """
         try:
-            time1 = time.time() # 这行代码在异步函数中也可以保留，用于计时
-
             # 设置 Accept 头为 text/event-stream，表示期望流式事件
             self.headers["Accept"] = "text/event-stream"
             payload = params
@@ -239,47 +329,3 @@ class OpenAIClient:
         return response.json()
 
 
-
-import os
-
-def test_request():
-    opc = OpenAIClient(os.getenv('BIANXIE_API_KEY'))
-    data = {
-    "model": "gpt-3.5-turbo",
-    "messages": [{
-        "role": "user",
-        "content": "how to deal with world war 3"
-    }]
-    }
-    pp = opc.request(data)
-    print(pp)
-
-def test_request_stream():
-    opc = OpenAIClient(os.getenv('BIANXIE_API_KEY'))
-    data = {
-    "model": "gpt-3.5-turbo",
-    "messages": [{
-        "role": "user",
-        "content": "how to deal with world war 3"
-    }],
-    "stream": True
-}
-    pp = opc.request_stream(data)
-    print(pp)
-    for i in pp:
-        print(i)
-
-def test_request_modal():
-    opc = OpenAIClient(os.getenv('BIANXIE_API_KEY'))
-    data = {
-    "model": "gpt-3.5-turbo",
-    "messages": [{
-        "role": "user",
-        "content": "how to deal with world war 3"
-    }],
-    "stream": True
-}
-    pp = opc.request_stream(data)
-    print(pp)
-    for i in pp:
-        print(i)
