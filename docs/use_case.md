@@ -282,4 +282,3 @@ model.chat([{'role':'user','content':'你好'}])
     '你好！有什么我可以帮您的吗？'
 
 
-

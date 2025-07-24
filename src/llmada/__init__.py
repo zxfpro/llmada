@@ -1,9 +1,4 @@
-# 注意vpn
+#TODO 深度思考
+#TODO 视觉理解
+#TODO GUI Agent
 
-"""
-           我的   openai的
-
-没有vpn  √(64)     √
-vpn     x         x
-    
-"""
