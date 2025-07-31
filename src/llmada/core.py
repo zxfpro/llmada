@@ -194,6 +194,7 @@ class BianXieAdapter(ModelAdapter):
             "text-embedding-ada-002",
             "text-embedding-3-small",
             "text-embedding-3-large",
+            "deepseek-v3",
         ]
         self.model_name = self.model_pool[0]
         self.chat_history = []
