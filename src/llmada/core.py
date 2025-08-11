@@ -163,6 +163,7 @@ class BianXieAdapter(ModelAdapter):
             "gemini-2.5-pro-preview-05-06-thinking",
             "gemini-2.5-pro-preview-06-05",
             "gemini-2.5-pro-preview-06-05-thinking",
+            "gemini-2.5-flash-preview-05-20-nothinking",
             "deepseek-ai/DeepSeek-R1",
             "deepseek-ai/DeepSeek-V3",
             "deepseek-chat",
@@ -195,6 +196,7 @@ class BianXieAdapter(ModelAdapter):
             "text-embedding-3-small",
             "text-embedding-3-large",
             "deepseek-v3",
+            "gpt-5",
         ]
         self.model_name = self.model_pool[0]
         self.chat_history = []
