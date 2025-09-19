@@ -2,8 +2,7 @@ import sys
 import os
 from dotenv import load_dotenv
 import pytest
-from llmada import BianXieAdapter, KimiAdapter, ArkAdapter, GoogleAdapter
-
+from llmada.core import BianXieAdapter, ArkAdapter
 
 load_dotenv()
 

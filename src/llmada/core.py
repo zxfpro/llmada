@@ -1,6 +1,10 @@
 """
 模型适配器
 """
+# TOOD 重调机制 如果bianxieapi 发生问题, 进行重钓,llmada 这边负责, 保证绝对给对外做好支持
+
+
+
 
 from .client import OpenAIClient
 
@@ -241,7 +245,7 @@ class BianXieAdapter(ModelAdapter):
         if not self._assert_prompt(prompt):
             yield ""
         else:
-            result_stream = self.client.request_stream_http2(data)
+            result_stream = self.client.request_stream(data)
             for i in result_stream:
                 yield i
 
@@ -305,7 +309,7 @@ class BianXieAdapter(ModelAdapter):
             "temperature": self.temperature,
             "stream": True,
         }
-        async for i in self.client.arequest_stream_http2(data):
+        async for i in self.client.arequest_stream(data):
             yield i
 
     def chat(self, messages: list) -> str:
@@ -349,7 +353,7 @@ class BianXieAdapter(ModelAdapter):
             "temperature": self.temperature,
             "stream": True,
         }
-        result_stream = self.client.request_stream_http2(data)
+        result_stream = self.client.request_stream(data)
 
         for i in result_stream:
             yield i
@@ -373,7 +377,7 @@ class BianXieAdapter(ModelAdapter):
             "stream": True,
         }
 
-        result_stream = self.client.request_stream_http2(data)
+        result_stream = self.client.request_stream(data)
 
         result_str = ""
         for i in result_stream:

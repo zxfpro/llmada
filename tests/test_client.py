@@ -11,25 +11,30 @@ Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查�
 import requests
 import os
 from llmada.client import OpenAIClient
+import pytest
+
 
 def test_client_request():
     client = OpenAIClient(api_key=os.getenv("BIANXIE_API_KEY"))
 
-    data = {
+    params = {
             "model": "gemini-2.5-flash-preview-05-20-nothinking",
             "messages": [{"role": "user", "content": "你好"}],
             "temperature": 0.7,
         }
-    response = client.request(data)
+    response = client.request(params = params)
     print(response)
 
-def test_client_request_asr():
+
+async def test_client_arequest():
     client = OpenAIClient(api_key=os.getenv("BIANXIE_API_KEY"))
-    data = {
-            "model": "whisper-1",
-            "file_path": 'tests/resources/speech.mp3',
+
+    params = {
+            "model": "gemini-2.5-flash-preview-05-20-nothinking",
+            "messages": [{"role": "user", "content": "你好"}],
+            "temperature": 0.7,
         }
-    response = client.request_asr(data)
+    response = await client.arequest(params = params)
     print(response)
 
 def test_client_request_tts():
@@ -37,22 +42,76 @@ def test_client_request_tts():
 
     data = {
             "model": "tts-1",
-            "input": "你好",
+            "input": "你好 世界",
             "voice": "alloy",
-            "file_path": 'tests/resources/speech.mp3',
+            "file_path": 'tests/resources/speech2.mp3',
         }
     response = client.request_tts(data)
     print(response)
 
+async def test_client_arequest_tts():
+    client = OpenAIClient(api_key=os.getenv("BIANXIE_API_KEY"))
 
-# def test_client_request_stream():
-#     client = OpenAIClient(api_key=os.getenv("BIANXIE_API_KEY"))
+    params = {
+            "model": "tts-1",
+            "input": "你好 世界 天气不错",
+            "voice": "alloy",
+            "file_path": 'tests/resources/speech.mp3',
+        }
+    response = await client.arequest_tts(params = params)
+    print(response)
 
-#     data = {
-#             "model": "gemini-2.5-flash-preview-05-20-nothinking",
-#             "messages": [{"role": "user", "content": "你好"}],
-#             "temperature": 0.7,
-#         }
-#     response = client.request(data)
-#     print(response)
+def test_client_request_asr():
+    # 未通过
+    client = OpenAIClient(api_key=os.getenv("BIANXIE_API_KEY"))
+    params = {
+            "model": "whisper-1",
+            "file_path": 'tests/resources/speech2.mp3',
+        }
+    response = client.request_asr(params = params)
+    print(response)
 
+
+
+def test_client_request_stream():
+    client = OpenAIClient(api_key=os.getenv("BIANXIE_API_KEY"))
+
+    data = {
+            "model": "gemini-2.5-flash-preview-05-20-nothinking",
+            "messages": [{"role": "user", "content": "你好"}],
+            "temperature": 0.7,
+            "stream": True,
+        }
+    response = client.request_stream(data)
+    for i in response:
+        print(i)
+
+async def test_client_request_stream():
+    client = OpenAIClient(api_key=os.getenv("BIANXIE_API_KEY"))
+
+    data = {
+            "model": "gemini-2.5-flash-preview-05-20-nothinking",
+            "messages": [{"role": "user", "content": "你好"}],
+            "temperature": 0.7,
+            "stream": True,
+        }
+    response = client.arequest_stream(data)
+    async for i in response:
+        print(i)
+
+
+def test_client_request_stream():
+    client = OpenAIClient(api_key=os.getenv("BIANXIE_API_KEY"))
+
+    params = {
+            'model': 'gemini-2.5-flash-image-preview',
+            'messages': [{'role': 'user', 'content': '绘制两个小孩的照片'}],
+            "temperature": 0.7,
+            'stream': True
+        }
+    response = client.request_image_stream(params,filename_prefix ="tests/resources/gemini_output" )
+    for i in response:
+        print(i)
+
+def test_request_modal():
+    pass
