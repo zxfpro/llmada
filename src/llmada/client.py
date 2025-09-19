@@ -8,6 +8,8 @@ import json
 import base64
 import httpx
 from .log import Log
+from .utils import save_base64_image
+from .utils import image_to_base64
 
 logger = Log.logger
 
@@ -21,6 +23,7 @@ class OpenAIClient:
     ):
         """
         初始化 OpenAI 客户端
+        url = 'https://api.bianxie.ai/v1/audio/transcriptions'  asr 语音识别
         """
         self.api_key = api_key
         self.api_base = api_base
@@ -33,17 +36,239 @@ class OpenAIClient:
         """
         简单对话：直接调用 OpenAI API 并返回完整响应
         """
-
+        api_base = self.api_base
         try:
             logger.info('request running')
             time1 = time.time()
-            response = requests.post(self.api_base, headers=self.headers, json=params)
+            response = requests.post(api_base, headers=self.headers, json=params)
             time2 = time.time()
             logger.debug(time2 - time1)
             return response.json()
         except Exception as e:
             logger.error(e)
             raise Exception(f"API request failed: {e}") from e
+        
+
+    def request_asr(self, params: dict) -> dict:
+        """
+
+        params: dict
+            - file_path 音频路径
+            - model 模型名称 'whisper-1'
+        """
+        api_base = 'https://api.bianxie.ai/v1/audio/transcriptions'
+        print(params.get("file_path"),'params.get("file_path")')
+        print(params.get("model"),'params.get("file_path")')
+        try:
+            with open(params.get("file_path"), 'rb') as audio_file:
+                logger.info('request running')
+                time1 = time.time()
+                response = requests.post(
+                    api_base,
+                    headers = self.headers,
+                    files={'file': audio_file},
+                    data={'model': params.get('model')},
+                )
+                time2 = time.time()
+                logger.debug(time2 - time1)
+            return response.json()
+        except Exception as e:
+            logger.error(e)
+            raise Exception(f"API request failed: {e}") from e
+        
+    def request_tts(self, params: dict) -> dict:
+        """
+
+        params: dict
+            - file_path 音频路径  'tests/resources/speech.mp3'
+            - model 模型名称 'tts-1'
+            - input 输入文本 "你好"
+            - voice 声音    "alloy"
+        """
+        api_base = "https://api.bianxie.ai/v1/audio/speech"
+        try:
+            logger.info('request running')
+            time1 = time.time()
+            response = requests.post(
+                api_base,
+                headers = self.headers,
+                json={
+                    "model": params.get('model'),
+                    "input": params.get('input'),
+                    "voice": params.get('voice'),
+                }
+            )
+            time2 = time.time()
+            logger.debug(time2 - time1)
+            if response.status_code == 200:
+                with open(params.get('file_path'), "wb") as file:
+                    file.write(response.content)
+                print("Audio saved successfully as speech.mp3")
+            else:
+                print(f"Failed to get audio: {response.status_code} - {response.text}")
+
+            return response.json()
+        except Exception as e:
+            logger.error(e)
+            raise Exception(f"API request failed: {e}") from e
+
+
+
+    def request_stream(self, params: dict) -> dict:
+        """
+        简单对话：直接调用 OpenAI API 并返回流式响应
+        """
+        try:
+            time1 = time.time()
+            response = requests.post(
+                self.api_base, headers=self.headers, json=params, stream=True
+            )
+
+            # 检查HTTP状态码
+            if response.status_code == 200:
+                print("Received streaming response:")
+                # 逐行处理响应内容
+                # iter_lines() 迭代响应内容，按行分割，并解码
+                time2 = time.time()
+                for line in response.iter_lines():
+                    # lines are bytes, convert to string
+                    line = line.decode("utf-8")
+
+                    # Server-Sent Events (SSE) messages start with 'data: '
+                    # and the stream ends with 'data: [DONE]'
+                    if line.startswith("data:"):
+                        # Extract the JSON string after 'data: '
+                        json_str = line[len("data:") :].strip()
+
+                        if json_str == "[DONE]":
+                            break  # End of stream
+
+                        if json_str:  # Ensure it's not an empty data line
+                            try:
+                                # Parse the JSON string into a dictionary
+                                chunk = json.loads(json_str)
+
+                                # Extract the content chunk (similar structure to OpenAI API)
+                                # Check if choices and delta exist before accessing content
+                                if (
+                                    chunk
+                                    and "choices" in chunk
+                                    and len(chunk["choices"]) > 0
+                                ):
+                                    delta = chunk["choices"][0].get("delta")
+                                    if delta and "content" in delta:
+                                        content_chunk = delta["content"]
+                                        # Print the chunk without a newline, immediately flushing the output
+                                        # print(content_chunk, end='', flush=True)
+                                        yield content_chunk
+
+                            except json.JSONDecodeError as e:
+                                print(
+                                    f"\nError decoding JSON chunk: {e}\nChunk: {json_str}"
+                                )
+                            except Exception as e:
+                                print(
+                                    f"\nError processing chunk: {e}\nChunk data: {chunk}"
+                                )
+
+                print(
+                    f"\n(Streaming finished) {time2-time1}"
+                )  # Add a newline after the stream is complete
+
+            else:
+                # Handle non-200 responses
+                print(f"Error: Received status code {response.status_code}")
+                print("Response body:")
+                print(response.text)  # Print the full error response if not streaming
+
+        except requests.exceptions.RequestException as e:
+            # TODO if "439" in ccc
+            print(f"Request Error: {e}")
+        except Exception as e:
+            print(f"An unexpected error occurred: {e}")
+
+    
+    def request_image_stream(self, params: dict,filename_prefix:str = "gemini_output") -> dict:
+        """
+        简单对话：直接调用 OpenAI API 并返回流式响应
+        params = {
+            'model': 'gemini-2.5-flash-image-preview',
+            'messages': [{'role': 'user', 'content': 'two dogs in a tree'}],
+            'stream': True
+        }
+        """
+        api_base = self.api_base
+        try:
+            time1 = time.time()
+            response = requests.post(
+                api_base, headers=self.headers, json=params, stream=True
+            )
+
+            # 检查HTTP状态码
+            if response.status_code == 200:
+                print("Received streaming response:")
+                # 逐行处理响应内容
+                # iter_lines() 迭代响应内容，按行分割，并解码
+                time2 = time.time()
+                for line in response.iter_lines():
+                    # lines are bytes, convert to string
+                    line = line.decode("utf-8")
+
+                    if "![image](data:image/" in line:
+                        save_base64_image(line,filename_prefix = filename_prefix)
+
+                    # Server-Sent Events (SSE) messages start with 'data: '
+                    # and the stream ends with 'data: [DONE]'
+                    if line.startswith("data:"):
+                        # Extract the JSON string after 'data: '
+                        json_str = line[len("data:") :].strip()
+
+                        if json_str == "[DONE]":
+                            break  # End of stream
+
+                        if json_str:  # Ensure it's not an empty data line
+                            try:
+                                # Parse the JSON string into a dictionary
+                                chunk = json.loads(json_str)
+
+                                # Extract the content chunk (similar structure to OpenAI API)
+                                # Check if choices and delta exist before accessing content
+                                if (
+                                    chunk
+                                    and "choices" in chunk
+                                    and len(chunk["choices"]) > 0
+                                ):
+                                    delta = chunk["choices"][0].get("delta")
+                                    if delta and "content" in delta:
+                                        content_chunk = delta["content"]
+                                        # Print the chunk without a newline, immediately flushing the output
+                                        # print(content_chunk, end='', flush=True)
+                                        yield content_chunk
+
+                            except json.JSONDecodeError as e:
+                                print(
+                                    f"\nError decoding JSON chunk: {e}\nChunk: {json_str}"
+                                )
+                            except Exception as e:
+                                print(
+                                    f"\nError processing chunk: {e}\nChunk data: {chunk}"
+                                )
+
+                print(
+                    f"\n(Streaming finished) {time2-time1}"
+                )  # Add a newline after the stream is complete
+
+            else:
+                # Handle non-200 responses
+                print(f"Error: Received status code {response.status_code}")
+                print("Response body:")
+                print(response.text)  # Print the full error response if not streaming
+
+        except requests.exceptions.RequestException as e:
+            # TODO if "439" in ccc
+            print(f"Request Error: {e}")
+        except Exception as e:
+            print(f"An unexpected error occurred: {e}")
 
     def request_stream_http2(self, params: dict) -> dict:
         """
@@ -150,86 +375,12 @@ class OpenAIClient:
             # 异步函数中也抛出异常
             raise RuntimeError(error_msg) from e
 
-    def request_stream(self, params: dict) -> dict:
-        """
-        简单对话：直接调用 OpenAI API 并返回流式响应
-        """
-        try:
-            time1 = time.time()
-            response = requests.post(
-                self.api_base, headers=self.headers, json=params, stream=True
-            )
-
-            # 检查HTTP状态码
-            if response.status_code == 200:
-                print("Received streaming response:")
-                # 逐行处理响应内容
-                # iter_lines() 迭代响应内容，按行分割，并解码
-                time2 = time.time()
-                for line in response.iter_lines():
-                    # lines are bytes, convert to string
-                    line = line.decode("utf-8")
-
-                    # Server-Sent Events (SSE) messages start with 'data: '
-                    # and the stream ends with 'data: [DONE]'
-                    if line.startswith("data:"):
-                        # Extract the JSON string after 'data: '
-                        json_str = line[len("data:") :].strip()
-
-                        if json_str == "[DONE]":
-                            break  # End of stream
-
-                        if json_str:  # Ensure it's not an empty data line
-                            try:
-                                # Parse the JSON string into a dictionary
-                                chunk = json.loads(json_str)
-
-                                # Extract the content chunk (similar structure to OpenAI API)
-                                # Check if choices and delta exist before accessing content
-                                if (
-                                    chunk
-                                    and "choices" in chunk
-                                    and len(chunk["choices"]) > 0
-                                ):
-                                    delta = chunk["choices"][0].get("delta")
-                                    if delta and "content" in delta:
-                                        content_chunk = delta["content"]
-                                        # Print the chunk without a newline, immediately flushing the output
-                                        # print(content_chunk, end='', flush=True)
-                                        yield content_chunk
-
-                            except json.JSONDecodeError as e:
-                                print(
-                                    f"\nError decoding JSON chunk: {e}\nChunk: {json_str}"
-                                )
-                            except Exception as e:
-                                print(
-                                    f"\nError processing chunk: {e}\nChunk data: {chunk}"
-                                )
-
-                print(
-                    f"\n(Streaming finished) {time2-time1}"
-                )  # Add a newline after the stream is complete
-
-            else:
-                # Handle non-200 responses
-                print(f"Error: Received status code {response.status_code}")
-                print("Response body:")
-                print(response.text)  # Print the full error response if not streaming
-
-        except requests.exceptions.RequestException as e:
-            # TODO if "439" in ccc
-            print(f"Request Error: {e}")
-        except Exception as e:
-            print(f"An unexpected error occurred: {e}")
-
     def request_modal(self):
         #TODO 图像理解
         def get_img_content(inputs=str):
-            if is_url:
+            if 0: # is_url
                 return "https://github.com/dianping/cat/raw/master/cat-home/src/main/webapp/images/logo/cat_logo03.png"
             else:
-
                 def image_to_base64(image_path):
                     with open(image_path, "rb") as image_file:
                         image_data = image_file.read()
