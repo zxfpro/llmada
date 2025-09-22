@@ -7,11 +7,143 @@ import time
 import json
 import base64
 import httpx
-from .log import Log
-from .utils import save_base64_image
-from .utils import image_to_base64
+from llmada.log import Log
+from llmada.utils import save_base64_image, image_to_base64
+from tenacity import (
+    retry,
+    wait_fixed,
+    wait_exponential,
+    stop_after_attempt,
+    retry_if_exception_type,
+    before_sleep_log,
+)
+import logging
+import uuid
+import websockets
+from llmada.protocols import MsgType, full_client_request, receive_message
+from volcenginesdkarkruntime import Ark
+
 
 logger = Log.logger
+
+
+class ArkClient:
+    """
+    ArkClient
+    """
+
+    def __init__(
+        self, api_key: str, api_base: str = "",appid: str = "", access_token: str = ""
+    ):
+        """
+        初始化 OpenAI 客户端
+        url = 'https://api.bianxie.ai/v1/audio/transcriptions'  asr 语音识别
+        """
+        self.api_key = api_key
+        self.api_base = api_base
+        self.client = Ark(api_key=self.api_key)
+        
+        self.appid = appid or "9370139706"
+        self.access_token = access_token or "rPnirNKqj-jYwic1yTYpVOUU0xx2g8uj"
+        self.endpoint = "wss://openspeech.bytedance.com/api/v1/tts/ws_binary"
+
+    def product(self, data):
+        result = self.client.chat.completions.create(**data)
+        return result
+
+
+    async def generate2file(self,text: str, 
+                            filename = f"tests/resources/work.wav",
+                            encoding="wav",
+                            voice_type = "zh_female_yuanqinvyou_moon_bigtts"):
+        """
+        tts text2wav
+        """
+        cluster = ""
+        
+        def get_cluster(voice: str) -> str:
+            if voice.startswith("S_"):
+                return "volcano_icl"
+            return "volcano_tts"
+        
+        # Determine cluster
+        cluster = cluster if cluster else get_cluster(voice_type)
+
+        # Connect to server
+        headers = {
+            "Authorization": f"Bearer;{self.access_token}",
+        }
+
+        print(f"Connecting to {self.endpoint} with headers: {headers}")
+        websocket = await websockets.connect(
+            self.endpoint, additional_headers=headers, max_size=10 * 1024 * 1024
+        )
+        print(
+            f"Connected to WebSocket server, Logid: {websocket.response.headers['x-tt-logid']}",
+        )
+
+        try:
+            # Prepare request payload
+            request = {
+                "app": {
+                    "appid": self.appid,
+                    "token": self.access_token,
+                    "cluster": cluster,
+                },
+                "user": {
+                    "uid": str(uuid.uuid4()),
+                },
+                "audio": {
+                    "voice_type": voice_type,
+                    "encoding": encoding,
+                },
+                "request": {
+                    "reqid": str(uuid.uuid4()),
+                    "text": text,
+                    "operation": "submit",
+                    "with_timestamp": "1",
+                    "extra_param": json.dumps(
+                        {
+                            "disable_markdown_filter": False,
+                        }
+                    ),
+                },
+            }
+
+            # Send request
+            await full_client_request(websocket, json.dumps(request).encode())
+
+            # Receive audio data
+            audio_data = bytearray()
+            while True:
+                msg = await receive_message(websocket)
+
+                if msg.type == MsgType.FrontEndResultServer:
+                    continue
+                elif msg.type == MsgType.AudioOnlyServer:
+                    audio_data.extend(msg.payload)
+                    if msg.sequence < 0:  # Last message
+                        break
+                else:
+                    raise RuntimeError(f"TTS conversion failed: {msg}")
+
+            # Check if we received any audio data
+            if not audio_data:
+                raise RuntimeError("No audio data received")
+
+            # Save audio file
+            with open(filename, "wb") as f:
+                f.write(audio_data)
+            print(f"Audio received: {len(audio_data)}, saved to {filename}")
+
+        finally:
+            await websocket.close()
+            print("Connection closed")
+
+
+
+
+
 
 class OpenAIClient:
     """
@@ -38,7 +170,7 @@ class OpenAIClient:
         """
         api_base = self.api_base
         try:
-            logger.info('request running')
+            logger.info("request running")
             time1 = time.time()
             response = requests.post(api_base, headers=self.headers, json=params)
             time2 = time.time()
@@ -47,8 +179,21 @@ class OpenAIClient:
         except Exception as e:
             logger.error(e)
             raise Exception(f"API request failed: {e}") from e
-        
-        
+
+    @retry(
+        wait=wait_exponential(
+            multiplier=1, min=1, max=10
+        ),  # 首次等待1秒，指数增长，最大10秒
+        stop=stop_after_attempt(5),  # 最多尝试5次 (1次初始请求 + 4次重试)
+        retry=(
+            retry_if_exception_type(
+                httpx.RequestError
+            )  # 匹配网络错误 (连接超时, DNS, SSL等)
+            | retry_if_exception_type(httpx.HTTPStatusError)  # 匹配HTTP状态码错误
+        ),
+        before_sleep=before_sleep_log(logger, logging.INFO),  # 每次重试前打印日志
+        reraise=True,  # 如果所有重试都失败，重新抛出最后一个异常
+    )
     async def arequest(self, params: dict) -> dict:
         """
         # 修改后的异步请求函数
@@ -56,13 +201,15 @@ class OpenAIClient:
         """
         api_base = self.api_base
         try:
-            logger.info('Async request running')
+            logger.info("Async request running")
             time1 = time.time()
 
             # 使用 httpx.AsyncClient 进行异步请求
             async with httpx.AsyncClient(headers=self.headers) as client:
-                response = await client.post(api_base, json=params, timeout=30.0) # 加上timeout是个好习惯
-                response.raise_for_status() # 检查HTTP状态码，如果不是2xx，会抛出异常
+                response = await client.post(
+                    api_base, json=params, timeout=30.0
+                )  # 加上timeout是个好习惯
+                response.raise_for_status()  # 检查HTTP状态码，如果不是2xx，会抛出异常
 
             time2 = time.time()
             logger.debug(f"Request took: {time2 - time1:.4f} seconds")
@@ -70,16 +217,21 @@ class OpenAIClient:
             return response.json()
 
         except httpx.HTTPStatusError as e:
-            logger.error(f"HTTP error occurred: {e.response.status_code} - {e.response.text}")
-            raise Exception(f"API request failed with HTTP error: {e.response.status_code}") from e
+            logger.error(
+                f"HTTP error occurred: {e.response.status_code} - {e.response.text}"
+            )
+            raise Exception(
+                f"API request failed with HTTP error: {e.response.status_code}"
+            ) from e
         except httpx.RequestError as e:
             logger.error(f"An error occurred while requesting {e.request.url!r}: {e}")
-            raise Exception(f"API request failed due to network or connection error: {e}") from e
+            raise Exception(
+                f"API request failed due to network or connection error: {e}"
+            ) from e
         except Exception as e:
             logger.error(f"An unexpected error occurred: {e}")
             raise Exception(f"API request failed: {e}") from e
 
-        
     def request_tts(self, params: dict) -> dict:
         """
 
@@ -91,21 +243,21 @@ class OpenAIClient:
         """
         api_base = "https://api.bianxie.ai/v1/audio/speech"
         try:
-            logger.info('request running')
+            logger.info("request running")
             time1 = time.time()
             response = requests.post(
                 api_base,
-                headers = self.headers,
+                headers=self.headers,
                 json={
-                    "model": params.get('model'),
-                    "input": params.get('input'),
-                    "voice": params.get('voice'),
-                }
+                    "model": params.get("model"),
+                    "input": params.get("input"),
+                    "voice": params.get("voice"),
+                },
             )
             time2 = time.time()
             logger.debug(time2 - time1)
             if response.status_code == 200:
-                with open(params.get('file_path'), "wb") as file:
+                with open(params.get("file_path"), "wb") as file:
                     file.write(response.content)
                 print(f"Audio saved successfully as {params.get('file_path')}")
             else:
@@ -130,37 +282,43 @@ class OpenAIClient:
             #     response = await client.post(api_base, json=params, timeout=30.0) # 加上timeout是个好习惯
             #     response.raise_for_status() # 检查HTTP状态码，如果不是2xx，会抛出异常
 
-
-            logger.info('Async request_tts running')
+            logger.info("Async request_tts running")
 
             time1 = time.time()
             api_base = "https://api.bianxie.ai/v1/audio/speech"
-            params={
-                    "model": params.get('model'),
-                    "input": params.get('input'),
-                    "voice": params.get('voice'),
-                }
+            params = {
+                "model": params.get("model"),
+                "input": params.get("input"),
+                "voice": params.get("voice"),
+            }
             # 使用 httpx.AsyncClient 进行异步请求
             async with httpx.AsyncClient(headers=self.headers) as client:
-                response = await client.post(api_base, json=params, timeout=30.0) # 加上timeout是个好习惯
-                response.raise_for_status() # 检查HTTP状态码，如果不是2xx，会抛出异常
+                response = await client.post(
+                    api_base, json=params, timeout=30.0
+                )  # 加上timeout是个好习惯
+                response.raise_for_status()  # 检查HTTP状态码，如果不是2xx，会抛出异常
 
             time2 = time.time()
             logger.debug(time2 - time1)
             if response.status_code == 200:
-                with open(params.get('file_path'), "wb") as file:
+                with open(params.get("file_path"), "wb") as file:
                     file.write(response.content)
                 print(f"Audio saved successfully as {params.get('file_path')}")
             else:
                 print(f"Failed to get audio: {response.status_code} - {response.text}")
 
-
         except httpx.HTTPStatusError as e:
-            logger.error(f"HTTP error occurred: {e.response.status_code} - {e.response.text}")
-            raise Exception(f"API request failed with HTTP error: {e.response.status_code}") from e
+            logger.error(
+                f"HTTP error occurred: {e.response.status_code} - {e.response.text}"
+            )
+            raise Exception(
+                f"API request failed with HTTP error: {e.response.status_code}"
+            ) from e
         except httpx.RequestError as e:
             logger.error(f"An error occurred while requesting {e.request.url!r}: {e}")
-            raise Exception(f"API request failed due to network or connection error: {e}") from e
+            raise Exception(
+                f"API request failed due to network or connection error: {e}"
+            ) from e
         except Exception as e:
             logger.error(f"An unexpected error occurred: {e}")
             raise Exception(f"API request failed: {e}") from e
@@ -172,18 +330,18 @@ class OpenAIClient:
             - file_path 音频路径
             - model 模型名称 'whisper-1'
         """
-        api_base = 'https://api.bianxie.ai/v1/audio/transcriptions'
-        print(params.get("file_path"),'params.get("file_path")')
-        print(params.get("model"),'params.get("file_path")')
+        api_base = "https://api.bianxie.ai/v1/audio/transcriptions"
+        print(params.get("file_path"), 'params.get("file_path")')
+        print(params.get("model"), 'params.get("file_path")')
         try:
-            with open(params.get("file_path"), 'rb') as audio_file:
-                logger.info('request running')
+            with open(params.get("file_path"), "rb") as audio_file:
+                logger.info("request running")
                 time1 = time.time()
                 response = requests.post(
                     api_base,
-                    headers = self.headers,
-                    files={'file': audio_file},
-                    data={'model': params.get('model')},
+                    headers=self.headers,
+                    files={"file": audio_file},
+                    data={"model": params.get("model")},
                 )
                 time2 = time.time()
                 logger.debug(time2 - time1)
@@ -299,7 +457,9 @@ class OpenAIClient:
             # 异步函数中也抛出异常
             raise RuntimeError(error_msg) from e
 
-    def request_image_stream(self, params: dict,filename_prefix:str = "gemini_output") -> dict:
+    def request_image_stream(
+        self, params: dict, filename_prefix: str = "gemini_output"
+    ) -> dict:
         """
         简单对话：直接调用 OpenAI API 并返回流式响应
         params = {
@@ -326,8 +486,8 @@ class OpenAIClient:
                     line = line.decode("utf-8")
 
                     if "![image](data:image/" in line:
-                        print(f'生成图片中到 {filename_prefix}')
-                        save_base64_image(line,filename_prefix = filename_prefix)
+                        print(f"生成图片中到 {filename_prefix}")
+                        save_base64_image(line, filename_prefix=filename_prefix)
 
                     # Server-Sent Events (SSE) messages start with 'data: '
                     # and the stream ends with 'data: [DONE]'
@@ -374,20 +534,20 @@ class OpenAIClient:
                 # Handle non-200 responses
                 print(f"Error: Received status code {response.status_code}")
                 print("Response body:")
-                
+
         except requests.exceptions.RequestException as e:
             # TODO if "439" in ccc
             print(f"Request Error: {e}")
         except Exception as e:
             print(f"An unexpected error occurred: {e}")
 
-
     def request_modal(self):
-        #TODO 图像理解
+        # TODO 图像理解
         def get_img_content(inputs=str):
-            if 0: # is_url
+            if 0:  # is_url
                 return "https://github.com/dianping/cat/raw/master/cat-home/src/main/webapp/images/logo/cat_logo03.png"
             else:
+
                 def image_to_base64(image_path):
                     with open(image_path, "rb") as image_file:
                         image_data = image_file.read()

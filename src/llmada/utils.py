@@ -1,13 +1,14 @@
 
+from urllib.parse import urlparse
 import base64
-
+import re
+from llmada.log import Log
+logger = Log.logger
 
 def save_base64_image(markdown_line, filename_prefix="gemini_output"):
     # 提取 base64 字符串
-    import re
-    
-    match = re.search(r'!\[.*?\]\(data:image/(png|jpeg);base64,(.*?)\)', markdown_line)
-    print(match,'match')
+
+    match = re.search(r"!\[.*?\]\(data:image/(png|jpeg);base64,(.*?)\)", markdown_line)
     if match:
         image_format = match.group(1)  # png 或 jpeg
         base64_data = match.group(2)
@@ -17,9 +18,10 @@ def save_base64_image(markdown_line, filename_prefix="gemini_output"):
         filename = f"{filename_prefix}.{image_format}"
         with open(f"{filename}", "wb") as f:
             f.write(image_data)
-        print(f"图片已保存为 {filename}")
+        logger.info(f"图片已保存为 {filename}")
     else:
         print("未找到合法的 base64 图片数据")
+
 
 def image_to_base64(image_path):
     # 以二进制方式读取图片文件
@@ -29,11 +31,9 @@ def image_to_base64(image_path):
         # 使用base64模块进行编码
         base64_encoded_data = base64.b64encode(image_data)
         # 将编码后的数据转换为字符串
-        base64_encoded_str = base64_encoded_data.decode('utf-8')
+        base64_encoded_str = base64_encoded_data.decode("utf-8")
         return base64_encoded_str
 
-
-from urllib.parse import urlparse
 
 def is_url_urllib(url_string):
     try:

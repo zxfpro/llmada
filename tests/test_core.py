@@ -1,138 +1,73 @@
+from dotenv import load_dotenv
+from llmada.core import BianXieAdapter, ArkAdapter
+import pytest
 import sys
 import os
-from dotenv import load_dotenv
-import pytest
-from llmada.core import BianXieAdapter, ArkAdapter
-
 load_dotenv()
-
-
-
-
-
-@pytest.fixture(scope="module")
-def llm_instance():
-    """
-    如果你的LLM需要实例化或加载，可以在这里完成。
-    例如：model = LLMClass(config_path="config.yaml")
-    return model
-    """
-    print("\n--- Setting up LLM instance for testing ---")
-    yield my_awesome_llm # 返回函数本身
-    print("--- Tearing down LLM instance ---")
-
-
-
-
-
-
-
-
-
 
 
 class Test_Bianxie:
     @pytest.fixture
     def bianxie(self):
-        return BianXieAdapter()
-
+        return BianXieAdapter("gemini-2.5-flash-preview-05-20-nothinking")
+    
     # @pytest.mark.skip("通过")
-    @pytest.mark.base
-    def test_get_model(self,bianxie):
-        print(bianxie.get_model())
-
-    # @pytest.mark.skip("通过")
-    @pytest.mark.base
-    def test_get_modal_model(self,bianxie):
-        print(bianxie.get_modal_model())
-
-    # @pytest.mark.skip("通过")
-    @pytest.mark.function
     def test_product(self,bianxie):
-        bianxie.set_model('gpt-4o')
-        result = bianxie.product(prompt='你好')
-        assert type(result) == str
-
-    def test_product_modal(self,bianxie):
-        pass
-
-    @pytest.mark.skip("通过")
-    def test_product_stream(self,bianxie):
-        rus = bianxie.product_stream(prompt='你好')
-        for i in rus:
-            print(i)
-            assert type(i) == str
+        result = bianxie.product('你好')
+        print(result,"result")
         
-    @pytest.mark.skip("未通过")
-    def test_chat(self,bianxie):
-        result = bianxie.chat(messages=[{'role': 'user', 'content': '你好'}])
-        print(result)
-        assert type(result) == str
+    async def test_aproduct(self,bianxie):
+        result = await bianxie.aproduct('你好')
+        print(result,"result")
 
-    def test_chat_modal(self,bianxie):
-        pass
 
-    @pytest.mark.skip("通过")
-    def test_chat_stream(self,bianxie):
-        rus = bianxie.chat_stream(messages=[{'role': 'user', 'content': '你好'}])
+    def test_product_stream(self,bianxie):
+        rus = bianxie.product_stream("你好")
         for i in rus:
             print(i)
             assert type(i) == str
 
+    async def test_aproduct_stream(self,bianxie):
+        rus = bianxie.aproduct_stream("你好")
+        async for i in rus:
+            print(i)
+            assert type(i) == str
 
-class Test_Kimi:
 
-    @pytest.fixture
-    def kimi(self):
-        return KimiAdapter()
+    def test_product_by_dict(self,bianxie):
+        data = {
+            "model": "gemini-2.5-flash-preview-05-20-nothinking",
+            "messages": [{"role": "user", "content": "你好"}],
+            "temperature": 0.7,
+        }
+        result = bianxie.product_by_dict(data)
+        print(result,"result")
 
-    @pytest.mark.skip("通过")
-    def test_product(self,kimi):
-        result = kimi.product(prompt='你好')
-        print(result)
-        assert type(result) == str
+    async def test_aproduct_by_dict(self,bianxie):
+        data = {
+            "model": "gemini-2.5-flash-preview-05-20-nothinking",
+            "messages": [{"role": "user", "content": "你好"}],
+            "temperature": 0.7,
+        }
+        result = await bianxie.aproduct_by_dict(data)
+        print(result,"result")
 
-    @pytest.mark.skip("通过")
-    def test_chat(self,kimi):
-        result = kimi.chat(messages=[{'role': 'user', 'content': '你好'}])
-        print(result)
-        assert type(result) == str
 
 
 class Test_Ark:
 
     @pytest.fixture
     def ark(self):
-        return ArkAdapter()
+        return ArkAdapter("doubao-1-5-pro-256k-250115")
 
-    @pytest.mark.skip("通过")
     def test_product(self,ark):
+        # @pytest.mark.skip("通过")
         result = ark.product(prompt='你好')
-        print(result)
+        print(result,'result')
         assert type(result) == str
 
-    @pytest.mark.skip("通过")
-    def test_chat(self,ark):
-        result = ark.chat(messages=[{'role': 'user', 'content': '你好'}])
-        print(result)
-        assert type(result) == str
+    async def test_tts(self,ark):
+        await ark.tts(text = "我是一个小狗狗",
+                filename = "tests/resources/work.wav")
 
-
-class Test_GoogleAdapter:
-
-    @pytest.fixture
-    def google(self):
-        return GoogleAdapter()
-
-    @pytest.mark.skip("通过")
-    def test_product(self,google):
-        result = google.product(prompt='你好')
-        print(result)
-        assert type(result) == str
-
-    @pytest.mark.skip("通过")
-    def test_chat(self,google):
-        result = google.chat(messages=[{'role': 'user', 'content': '你好'}])
-        print(result)
-        assert type(result) == str
 
