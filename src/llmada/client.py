@@ -7,6 +7,7 @@ import time
 import json
 import base64
 import httpx
+import logging
 from llmada.log import Log
 from llmada.utils import save_base64_image, image_to_base64
 from tenacity import (
@@ -17,7 +18,6 @@ from tenacity import (
     retry_if_exception_type,
     before_sleep_log,
 )
-import logging
 import uuid
 import websockets
 from llmada.protocols import MsgType, full_client_request, receive_message
@@ -184,11 +184,9 @@ class OpenAIClient:
         wait=wait_exponential(
             multiplier=1, min=1, max=10
         ),  # 首次等待1秒，指数增长，最大10秒
-        stop=stop_after_attempt(5),  # 最多尝试5次 (1次初始请求 + 4次重试)
+        stop=stop_after_attempt(3),  # 最多尝试5次 (1次初始请求 + 4次重试)
         retry=(
-            retry_if_exception_type(
-                httpx.RequestError
-            )  # 匹配网络错误 (连接超时, DNS, SSL等)
+            retry_if_exception_type(httpx.RequestError)  # 匹配网络错误 (连接超时, DNS, SSL等)
             | retry_if_exception_type(httpx.HTTPStatusError)  # 匹配HTTP状态码错误
         ),
         before_sleep=before_sleep_log(logger, logging.INFO),  # 每次重试前打印日志
@@ -200,14 +198,13 @@ class OpenAIClient:
         简单对话：直接调用 OpenAI API 并返回完整响应 (异步版本)
         """
         api_base = self.api_base
+        logger.info("Async request running")
         try:
-            logger.info("Async request running")
             time1 = time.time()
-
             # 使用 httpx.AsyncClient 进行异步请求
             async with httpx.AsyncClient(headers=self.headers) as client:
                 response = await client.post(
-                    api_base, json=params, timeout=30.0
+                    api_base, json=params, timeout=60.0
                 )  # 加上timeout是个好习惯
                 response.raise_for_status()  # 检查HTTP状态码，如果不是2xx，会抛出异常
 
@@ -220,14 +217,12 @@ class OpenAIClient:
             logger.error(
                 f"HTTP error occurred: {e.response.status_code} - {e.response.text}"
             )
-            raise Exception(
-                f"API request failed with HTTP error: {e.response.status_code}"
-            ) from e
+            # 这里不要重新抛出新的Exception类型，而是重新抛出原始异常，或者不捕获让tenacity处理
+            # 方式一：直接 raise e，tenacity 会捕捉到 httpx.HTTPStatusError
+            raise
         except httpx.RequestError as e:
             logger.error(f"An error occurred while requesting {e.request.url!r}: {e}")
-            raise Exception(
-                f"API request failed due to network or connection error: {e}"
-            ) from e
+            raise 
         except Exception as e:
             logger.error(f"An unexpected error occurred: {e}")
             raise Exception(f"API request failed: {e}") from e

@@ -426,7 +426,7 @@ class Message:
             return f"MsgType: {self.type}, EventType:{self.event}, Payload: {self.payload.decode('utf-8', 'ignore')}"
 
 
-async def receive_message(websocket: websockets.WebSocketClientProtocol) -> Message:
+async def receive_message(websocket) -> Message:
     """Receive message from websocket"""
     try:
         data = await websocket.recv()
@@ -444,7 +444,7 @@ async def receive_message(websocket: websockets.WebSocketClientProtocol) -> Mess
 
 
 async def wait_for_event(
-    websocket: websockets.WebSocketClientProtocol,
+    websocket,
     msg_type: MsgType,
     event_type: EventType,
 ) -> Message:
@@ -458,7 +458,7 @@ async def wait_for_event(
 
 
 async def full_client_request(
-    websocket: websockets.WebSocketClientProtocol, payload: bytes
+    websocket, payload: bytes
 ) -> None:
     """Send full client message"""
     msg = Message(type=MsgType.FullClientRequest, flag=MsgTypeFlagBits.NoSeq)
@@ -468,7 +468,7 @@ async def full_client_request(
 
 
 async def audio_only_client(
-    websocket: websockets.WebSocketClientProtocol, payload: bytes, flag: MsgTypeFlagBits
+    websocket, payload: bytes, flag: MsgTypeFlagBits
 ) -> None:
     """Send audio-only client message"""
     msg = Message(type=MsgType.AudioOnlyClient, flag=flag)
@@ -477,7 +477,7 @@ async def audio_only_client(
     await websocket.send(msg.marshal())
 
 
-async def start_connection(websocket: websockets.WebSocketClientProtocol) -> None:
+async def start_connection(websocket) -> None:
     """Start connection"""
     msg = Message(type=MsgType.FullClientRequest, flag=MsgTypeFlagBits.WithEvent)
     msg.event = EventType.StartConnection
@@ -486,7 +486,7 @@ async def start_connection(websocket: websockets.WebSocketClientProtocol) -> Non
     await websocket.send(msg.marshal())
 
 
-async def finish_connection(websocket: websockets.WebSocketClientProtocol) -> None:
+async def finish_connection(websocket) -> None:
     """Finish connection"""
     msg = Message(type=MsgType.FullClientRequest, flag=MsgTypeFlagBits.WithEvent)
     msg.event = EventType.FinishConnection
@@ -495,8 +495,9 @@ async def finish_connection(websocket: websockets.WebSocketClientProtocol) -> No
     await websocket.send(msg.marshal())
 
 
+
 async def start_session(
-    websocket: websockets.WebSocketClientProtocol, payload: bytes, session_id: str
+    websocket, payload: bytes, session_id: str
 ) -> None:
     """Start session"""
     msg = Message(type=MsgType.FullClientRequest, flag=MsgTypeFlagBits.WithEvent)
@@ -508,7 +509,7 @@ async def start_session(
 
 
 async def finish_session(
-    websocket: websockets.WebSocketClientProtocol, session_id: str
+    websocket, session_id: str
 ) -> None:
     """Finish session"""
     msg = Message(type=MsgType.FullClientRequest, flag=MsgTypeFlagBits.WithEvent)
@@ -520,7 +521,7 @@ async def finish_session(
 
 
 async def cancel_session(
-    websocket: websockets.WebSocketClientProtocol, session_id: str
+    websocket, session_id: str
 ) -> None:
     """Cancel session"""
     msg = Message(type=MsgType.FullClientRequest, flag=MsgTypeFlagBits.WithEvent)
@@ -529,10 +530,10 @@ async def cancel_session(
     msg.payload = b"{}"
     logger.info(f"Sending: {msg}")
     await websocket.send(msg.marshal())
-
+# : websockets.client.WebSocketClientProtocol
 
 async def task_request(
-    websocket: websockets.WebSocketClientProtocol, payload: bytes, session_id: str
+    websocket, payload: bytes, session_id: str
 ) -> None:
     """Send task request"""
     msg = Message(type=MsgType.FullClientRequest, flag=MsgTypeFlagBits.WithEvent)

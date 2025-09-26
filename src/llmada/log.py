@@ -46,7 +46,7 @@ class Logger:
                 self.LOG_LEVEL = logging.INFO  # 默认级别
 
             # --- 2. 定义日志文件路径和名称 ---
-            self.LOG_DIR = "logs"
+            self.LOG_DIR = "logs2"
             self.LOG_FILE_NAME = log_file_name
             self.LOG_FILE_PATH = os.path.join(self.LOG_DIR, self.LOG_FILE_NAME)
 
