@@ -6,7 +6,9 @@ from llmada.log import Log
 logger = Log.logger
 
 def save_base64_image(markdown_line, filename_prefix="gemini_output"):
-    # 提取 base64 字符串
+    """
+    提取 base64 字符串
+    """
 
     match = re.search(r"!\[.*?\]\(data:image/(png|jpeg);base64,(.*?)\)", markdown_line)
     if match:
@@ -23,8 +25,10 @@ def save_base64_image(markdown_line, filename_prefix="gemini_output"):
         print("未找到合法的 base64 图片数据")
 
 
-def image_to_base64(image_path):
-    # 以二进制方式读取图片文件
+def image_to_base64(image_path:str) ->str:
+    """
+    以二进制方式读取图片文件
+    """
     with open(image_path, "rb") as image_file:
         # 将图像文件内容读取到变量中
         image_data = image_file.read()
@@ -35,11 +39,13 @@ def image_to_base64(image_path):
         return base64_encoded_str
 
 
-def is_url_urllib(url_string):
+def is_url_urllib(url_string: str):
+    """
+    检查 scheme 和 netloc 是否存在，并且 netloc 不为空
+    通常，一个有效的 URL 应该有 scheme (如 http, https) 和 netloc (如 www.example.com)
+    """
     try:
         result = urlparse(url_string)
-        # 检查 scheme 和 netloc 是否存在，并且 netloc 不为空
-        # 通常，一个有效的 URL 应该有 scheme (如 http, https) 和 netloc (如 www.example.com)
         return all([result.scheme, result.netloc])
     except Exception:
         return False

@@ -9,6 +9,8 @@ from dotenv import load_dotenv
 import os
 from llama_index.core.prompts import RichPromptTemplate
 from llama_index.llms.openai.utils import to_openai_message_dicts
+from typing import Iterator, Generator
+from typing import AsyncIterator, AsyncGenerator # 导入异步迭代器类型
 
 logger = Log.logger
 
@@ -234,7 +236,7 @@ class BianXieAdapter(ModelAdapter):
         response = await self.client.arequest(data)
         return self._deal_response(response=response)
 
-    def product_stream(self, prompt: str) -> str:
+    def product_stream(self, prompt: str) -> Iterator[str]:
         """Generate a response from the model based on a single prompt.
 
         Args:
@@ -256,7 +258,7 @@ class BianXieAdapter(ModelAdapter):
             for i in result_stream:
                 yield i
 
-    async def aproduct_stream(self, prompt: str) -> str:
+    async def aproduct_stream(self, prompt: str) -> AsyncIterator[str]:
         """Generate a response from the model based on a single prompt.
 
         Args:
@@ -300,7 +302,7 @@ class BianXieAdapter(ModelAdapter):
         else:
             raise ResourceExhaustedError(f"{response.get('error')}")
 
-    def product_image_stream(self, prompt: str, image_path: str) -> str:
+    def product_image_stream(self, prompt: str, image_path: str) -> Iterator[str]:
         """Generate a response from the model based on a single prompt.
         # TODO
 
