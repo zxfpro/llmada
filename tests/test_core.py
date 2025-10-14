@@ -5,7 +5,6 @@ import sys
 import os
 load_dotenv()
 
-
 class Test_Bianxie:
     @pytest.fixture
     def bianxie(self):
@@ -65,6 +64,14 @@ class Test_Ark:
         result = ark.product(prompt='你好')
         print(result,'result')
         assert type(result) == str
+
+    def test_product_stream(self,ark):
+        # @pytest.mark.skip("通过")
+        result = ark.product_stream(prompt='你好')
+        print(result,'result')
+        for chunk in result:
+            print(chunk)
+        # assert type(result) == str
 
     async def test_tts(self,ark):
         await ark.tts(text = "我是一个小狗狗",

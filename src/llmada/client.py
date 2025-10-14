@@ -51,6 +51,17 @@ class ArkClient:
         result = self.client.chat.completions.create(**data)
         return result
 
+    def product_stream(self, data):
+
+
+        stream = self.client.chat.completions.create(
+            **data
+        )
+        for chunk in stream:
+            if not chunk.choices:
+                continue
+            yield chunk.choices[0].delta.content
+            
 
     async def generate2file(self,text: str, 
                             filename = f"tests/resources/work.wav",
