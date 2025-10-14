@@ -65,13 +65,23 @@ class Test_Ark:
         print(result,'result')
         assert type(result) == str
 
+    async def test_aproduct(self,ark):
+        result = await ark.aproduct(prompt='你好')
+        print(result,'result')
+        assert type(result) == str
+        
     def test_product_stream(self,ark):
-        # @pytest.mark.skip("通过")
         result = ark.product_stream(prompt='你好')
         print(result,'result')
         for chunk in result:
             print(chunk)
         # assert type(result) == str
+
+    async def test_aproduct_stream(self,ark):
+        result = ark.aproduct_stream(prompt='你好')
+        async for chunk in result:
+            print(chunk)
+
 
     async def test_tts(self,ark):
         await ark.tts(text = "我是一个小狗狗",

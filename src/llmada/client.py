@@ -21,7 +21,7 @@ from tenacity import (
 import uuid
 import websockets
 from llmada.protocols import MsgType, full_client_request, receive_message
-from volcenginesdkarkruntime import Ark
+from volcenginesdkarkruntime import Ark, AsyncArk
 
 
 logger = Log.logger
@@ -42,7 +42,7 @@ class ArkClient:
         self.api_key = api_key
         self.api_base = api_base
         self.client = Ark(api_key=self.api_key)
-        
+        self.async_client =AsyncArk(api_key=self.api_key)
         self.appid = appid or "9370139706"
         self.access_token = access_token or "rPnirNKqj-jYwic1yTYpVOUU0xx2g8uj"
         self.endpoint = "wss://openspeech.bytedance.com/api/v1/tts/ws_binary"
@@ -50,10 +50,12 @@ class ArkClient:
     def product(self, data):
         result = self.client.chat.completions.create(**data)
         return result
+    
+    async def aproduct(self, data):
+        result = await self.async_client.chat.completions.create(**data)
+        return result
 
     def product_stream(self, data):
-
-
         stream = self.client.chat.completions.create(
             **data
         )
@@ -62,6 +64,15 @@ class ArkClient:
                 continue
             yield chunk.choices[0].delta.content
             
+    async def aproduct_stream(self, data):
+        stream = await self.async_client.chat.completions.create(
+            **data
+        )
+        async for chunk in stream:
+            if not chunk.choices:
+                continue
+            yield chunk.choices[0].delta.content
+
 
     async def generate2file(self,text: str, 
                             filename = f"tests/resources/work.wav",
