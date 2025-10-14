@@ -4,14 +4,9 @@
 from abc import ABC
 from llmada.client import OpenAIClient, ArkClient
 from llmada.utils import image_to_base64, is_url_urllib
-from llmada.log import Log
-
-import os
-from llama_index.core.prompts import RichPromptTemplate
-from llama_index.llms.openai.utils import to_openai_message_dicts
 from typing import Iterator, Generator,AsyncIterator ,AsyncGenerator
+import os
 
-logger = Log.logger
 
 
 
