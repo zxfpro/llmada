@@ -355,7 +355,7 @@ class ArkAdapter(ModelAdapter):
         super().__init__()
 
         self.client = ArkClient(api_key=api_key or os.getenv("ARK_API_KEY"))
-        self.model_pool = ["doubao-1-5-pro-256k-250115"]
+        self.model_pool = ["doubao-1-5-pro-256k-250115","doubao-1-5-pro-32k-250115"]
         self.model_name = model_name
 
     def product(self, prompt: str) -> str:
